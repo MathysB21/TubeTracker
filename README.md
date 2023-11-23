@@ -1,2 +1,2 @@
 # TubeTracker
-This program creates an overlay over YouTube and grabs the URLs of the videos you click on. After grabbing all the URLs it downloads these videos to your local PC.
+This program waits for the user to copy links of videos on YouTube. After copying all the URLs, the user can click Download and all the videos will be downloaded to their PC.
