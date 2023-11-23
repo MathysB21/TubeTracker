@@ -1,9 +1,17 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QTextEdit, QPushButton
-from PyQt5.QtCore import QObject, pyqtSignal, Qt
 import re
-import yt_dlp
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QTextEdit, QPushButton, QPlainTextEdit
+from PyQt5.QtCore import QObject, pyqtSignal, QProcess, Qt
 from datetime import datetime
+
+class ConsoleRedirect(QObject):
+    text_written = pyqtSignal(str)
+
+    def write(self, text):
+        self.text_written.emit(text)
+
+    def flush(self):
+        pass
 
 class ClipboardListener(QObject):
     clipboard_updated = pyqtSignal()
@@ -20,7 +28,7 @@ class ClipboardListener(QObject):
             clipboard_text = mime_data.text()
 
             # Check if the clipboard text contains URLs
-            url_pattern = r'https?://(?:www\.)?(?:youtube\.com|youtu\.be|xvideos\.com)/\S+' #You can add more sites inside the (?: ... ) You put in a | to act as an or, and then use \ to escape the dot
+            url_pattern = r'https?://(?:www\.)?(?:youtube\.com|youtu\.be|xvideos\.com)/\S+'
             urls = re.findall(url_pattern, clipboard_text)
 
             if urls:
@@ -34,7 +42,7 @@ class VideoCapture(QWidget):
 
         # Set window properties
         self.setWindowTitle("TubeTracker Video Capture")
-        self.setGeometry(100, 100, 400, 300)
+        self.setGeometry(100, 100, 600, 400)
 
         # Add QTextEdit widgets for displaying messages and captured URLs
         self.message_display = QTextEdit(self)
@@ -60,6 +68,12 @@ class VideoCapture(QWidget):
 
         # List to store captured URLs
         self.captured_urls = []
+
+        # Redirect console output to the GUI
+        console_redirect = ConsoleRedirect()
+        console_redirect.text_written.connect(self.display_message)
+        sys.stdout = console_redirect
+        sys.stderr = console_redirect
 
         # Set window to stay on top
         self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
@@ -93,21 +107,41 @@ class VideoCapture(QWidget):
         # Remove duplicates from the list
         unique_urls = list(set(self.captured_urls))
 
-        try:
-            # Create a folder with the current date as the name
-            folder_name = datetime.now().strftime("%d %b %Y")
-            ydl_opts = {'outtmpl': f'{folder_name}/%(title)s.%(ext)s'}
+        # Create a folder with the current date as the name
+        folder_name = datetime.now().strftime("%d %b %Y")
 
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download(unique_urls)
-                self.display_message("Videos downloaded successfully.")
+        # Construct the yt-dlp command
+        command = ["yt-dlp", "--output", f"{folder_name}/%(title)s.%(ext)s"] + unique_urls
 
-                # Clear the captured URLs and text boxes
-                self.captured_urls = []
-                self.url_display.clear()
-        except Exception as e:
-            self.display_message(f"Error downloading videos: {str(e)}")
+        # Create a QProcess to run the command
+        process = QProcess()
+        process.setProcessChannelMode(QProcess.MergedChannels)
 
+        # Start the process
+        process.start("yt-dlp", command)
+
+        # Wait for the process to finish
+        process.waitForFinished()
+
+        # Capture the output
+        output = process.readAllStandardOutput().data().decode("utf-8")
+        self.display_message(output)
+
+        # Display message after download completion
+        self.download_completed()
+
+
+    def read_output(self):
+        process = self.sender()
+        output = process.readAllStandardOutput().data().decode("utf-8")
+        self.display_message(output)
+
+    def download_completed(self):
+        self.display_message("Videos downloaded successfully.")
+
+        # Clear the captured URLs and text boxes
+        self.captured_urls = []
+        self.url_display.clear()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
@@ -119,5 +153,3 @@ if __name__ == "__main__":
     video_capture.show()
 
     sys.exit(app.exec_())
-
-#Alright, now I need to make sure the app doesn't hang while videos are being downloaded. It must give continuous feedback about the videos.

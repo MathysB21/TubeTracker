@@ -5,6 +5,15 @@ import re
 import yt_dlp
 from datetime import datetime
 
+class ConsoleRedirect(QObject):
+    text_written = pyqtSignal(str)
+
+    def write(self, text):
+        self.text_written.emit(text)
+
+    def flush(self):
+        pass  # This method is required when redirecting sys.stdout and sys.stderr
+
 class ClipboardListener(QObject):
     clipboard_updated = pyqtSignal()
 
@@ -60,6 +69,12 @@ class VideoCapture(QWidget):
 
         # List to store captured URLs
         self.captured_urls = []
+
+        # Redirect console output to the GUI
+        console_redirect = ConsoleRedirect()
+        console_redirect.text_written.connect(self.display_message)
+        sys.stdout = console_redirect
+        sys.stderr = console_redirect
 
         # Set window to stay on top
         self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
@@ -119,5 +134,3 @@ if __name__ == "__main__":
     video_capture.show()
 
     sys.exit(app.exec_())
-
-#Alright, now I need to make sure the app doesn't hang while videos are being downloaded. It must give continuous feedback about the videos.
