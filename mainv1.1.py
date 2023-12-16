@@ -20,7 +20,7 @@ class ClipboardListener(QObject):
             clipboard_text = mime_data.text()
 
             # Check if the clipboard text contains URLs
-            url_pattern = r'https?://(?:www\.)?(?:youtube\.com|youtu\.be|xvideos\.com)/\S+' #You can add more sites inside the (?: ... ) You put in a | to act as an or, and then use \ to escape the dot
+            url_pattern = r'https?://(?:www\.)?(?:youtube\.com|youtu\.be|xvideos\.com|xnxx\.com)/\S+' #You can add more sites inside the (?: ... ) You put in a | to act as an or, and then use \ to escape the dot
             urls = re.findall(url_pattern, clipboard_text)
 
             if urls:
